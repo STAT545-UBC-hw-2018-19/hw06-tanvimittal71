@@ -1,0 +1,423 @@
+---
+title: "Data wrangling wrap up"
+output: 
+  html_document:
+    keep_md: true
+    toc: true
+    theme: united
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#### Load Packages
+
+```{r}
+suppressPackageStartupMessages(library(tidyverse))
+library(repurrrsive)
+library(listviewer)
+library(knitr)
+```
+
+### Task 1: Character data
+
+#### _String Basics_
+
+**In code that doesn’t use stringr, you’ll often see paste() and paste0(). What’s the difference between the two functions? What stringr function are they equivalent to? How do the functions differ in their handling of NA?**
+
+Let us first see the difference between paste() and paste0()
+
+```{r}
+fruits<-c("apple","banana","pear",NA)
+color<-c("Red","Yellow","Green",NA)
+paste(color,fruits,collapse = ",")
+paste0(color,fruits,collapse = ",")
+```
+
+Difference between two functions:
+paste0() has a default value for sep="" and for paste() the default is " ". 
+
+The equivalent stringr function is str_c:
+
+```{r}
+str_c(color,fruits)
+```
+
+*NA Handling*
+
+As we can see paste() and paste0() both coerce NA into character and concatenate it with other strings.However, str_c() does not coerce NA into character and collapsing the data will give NA which makes more sense in practical applications.
+
+```{r}
+str_c(color,fruits,collapse = ",")
+```
+
+**In your own words, describe the difference between the sep and collapse arguments to str_c()**
+
+```{r}
+hero1 <- c("superman","hulk","venom")
+hero2 <- c("batman","thor","spiderman")
+str_c(hero1,hero2,sep = "-",collapse = ",")
+```
+
++ sep: This argument is used to separate elements of strings concatenated using str_c()
++ collapse: This argument is used to separate different elements of a character vector while converting it into a single string
+
+**Use str_length() and str_sub() to extract the middle character from a string. What will you do if the string has an even number of characters?**
+
+```{r}
+cities <- c("Vancouver","Montreal","Toronto")
+#calculate middle index for strings
+middle_c <- ceiling(str_length(cities)/2) #ceiling function rounds up the number
+str_sub(cities,middle_c,middle_c)
+```
+
+**What does str_wrap() do? When might you want to use it?**
+
+str_wrap() is used to re-format the data by adjusting width and indentation, as it can be seen above.
+
+```{r}
+text <- c("But I must explain to you how all this mistaken idea of denouncing pleasure and praising pain was born and I will give you a complete account of the system, and expound the actual teachings of the great explorer of the truth, the master-builder of human happiness.")
+text
+cat(str_wrap(text,width = 50))
+```
+
+**What does str_trim() do? What’s the opposite of str_trim()?**
+
+str_trim() is used to remove white spaces from the start and end of a string
+
+```{r}
+sentence <- c("  This is an example sentence    ")
+trimmed.sentence <- str_trim(sentence) #str_squish() can be used to repeated spaces inside srings
+```
+
+The opposite of str_trim() is str_pad()
+
+```{r}
+str_pad(trimmed.sentence, width = 35, side = "both", pad = " " ) # any another character can be used in pad argument
+```
+
+**Write a function that turns (e.g.) a vector c("a", "b", "c") into the string a, b, and c. Think carefully about what it should do if given a vector of length 0, 1, or 2.**
+
+```{r}
+vect_to_string <- function(vect){
+  #error for vectors of length 0
+  if (length(vect) == 0) {
+        stop("Enter a vector of length greater than 0")
+  }
+  #otherwise return string by using collapse in str_c()
+  return(str_c(vect,collapse = ","))
+}
+input <- c("a","b","c")
+vect_to_string(input)
+```
+
+
+#### _Matching patterns with regular expressions_
+
+**Explain why each of these strings don’t match a \\: "\\", "\\\\", "\\\\\\".**
+
+* "\\": escapes the next character in string.
+* "\\\\": escapes the next character in regexp.
+* "\\\\\\": first two backslashes escape literal \\ which escapes the next character
+
+**How would you match the sequence "'\\?**
+
+```{r}
+x <- c("a\"\'\\b") #input string
+str_view(x,"\"\'\\\\") # \ is used as escape character
+```
+
+**What patterns will the regular expression \\..\\..\\.. match? How would you represent it as a string?**
+
+As "\\" is not an escape character in regexp. We will use "\\\\" which will match .(character).(character).(character), for example .a.b.c
+
+```{r}
+x <- c("abcd","a.b.c.d")
+str_view(x,"\\..\\..\\..")
+```
+
+**How would you match the literal string "\$^\$"?**
+
+```{r}
+x <-c("$^$","$^$abc","abc$^$")
+str_view(x,"^\\$\\^\\$$")
+```
+
+**Given the corpus of common words in stringr::words, create regular expressions that find all words that:**
+
+  1. Start with “y”.
+  2. End with “x”
+  3. Are exactly three letters long. (Don’t cheat by using str_length()!)
+  4. Have seven letters or more.
+  
+```{r}
+# ^y: starts with y
+# x$: ends with x
+# ^...$: exactly three letters long
+# .......: seven letters or more
+str_subset(stringr::words,"^y|x$|^...$|.......")
+```
+
+
+**Create regular expressions to find all words that:**
+
+* Start with a vowel.
+
+```{r}
+total_words <- stringr::words
+str_subset(total_words,"^[aeiou]")
+```
+
+
+* That only contain consonants. (Hint: thinking about matching “not”-vowels.)
+
+```{r}
+str_subset(total_words,"^[^aeiou]+$")
+```
+
+* End with ed, but not with eed.
+
+```{r}
+str_subset(total_words,"[^e]ed$")
+```
+
+* End with ing or ise.
+
+```{r}
+str_subset(total_words,"ing$|ise$")
+```
+
+
+**Empirically verify the rule “i before e except after c”.**
+
+```{r}
+str_subset(total_words,"[^c]ie|cei") #words following the rule
+str_subset(total_words,"[^c]ei")# words where the rule is not followed
+```
+
+**Is “q” always followed by a “u”?**
+
+Yes, "q" is always followed by a "u".
+
+```{r}
+str_subset(total_words,"q[^u]")#checking words with "q" not followed by a "u"
+```
+
+
+**Create a regular expression that will match telephone numbers as commonly written in your country.**
+
+```{r}
+phone_no <- c("123-456-7890","12345-67890","1234567890","1234")
+str_subset(phone_no,"\\d{3}-\\d{3}-\\d{4}")# checking format xxx-xxx-xxxx
+```
+
+
+**Describe the equivalents of ?, +, * in {m,n} form.**
+
+* \?:\{0,1\}
+* \+:\{1,\}
+* \*:\{0,\}
+
+**Describe in words what these regular expressions match: (read carefully to see if I’m using a regular expression or a string that defines a regular expression.)**
+
+  1. ^.*$: starts with 0 or more character. Matches all the strings, even an empty one.
+  2. "\\{.+\\}": matches the strings containing one or more character in curly braces, example: a{b}c
+  3. \d{4}-\d{2}-\d{2}: throws an error, as it should be \\\\d instead of \\d to match a digit
+  4. "\\\\{4}": matches strings with four backslahes.
+
+```{r}
+a <- c("abc","123","a{a}3","a\\\\\\\\b")
+str_view(a,"^.*$")
+str_view(a,"\\{.+\\}")
+#str_view(a,"\d{4}-\d{2}-\d{2}") #commented to avoid the error
+str_view(a,"\\\\{4}")
+```
+
+**Create regular expressions to find all words that:**
+
+  1. Start with three consonants.
+  
+```{r}
+str_subset(total_words,"^[^aeiou]{3}")
+```
+  
+  2. Have three or more vowels in a row.
+  
+```{r}
+str_subset(total_words,"[aeiou]{3}")
+```
+  
+  3. Have two or more vowel-consonant pairs in a row.
+  
+```{r}
+str_subset(total_words,"([aeiou][^aeiou]){2,}|([^aeiou][aeiou]){2,}")
+```
+
+
+**Describe, in words, what these expressions will match:**
+
+1. (.)\\\\1\\\\1: strings containing "xxx"
+2. "(.)(.)\\\\2\\\\1": strings containing \"xyyx\"
+3. (..)\\\\1: strings containing \"xyxy\"
+4. "(.).\\\\1.\\\\1": strings containing \"x<char>x<char>x\"
+5. "(.)(.)(.).*\\\\3\\\\2\\\\1": strings containing"xyz<char>zyx"
+
+```{r}
+words <- c("aaa","aabaa","abba","abab","abaca","abcdcba")
+str_subset(words,"(.)\\1\\1")
+str_subset(words, "(.)(.)\\2\\1")
+str_subset(words,"(..)\\1")
+str_subset(words,"(.).\\1.\\1")
+str_subset(words,"(.)(.)(.).*\\3\\2\\1")
+```
+
+**Construct regular expressions to match words that:**
+
+  1. Start and end with the same character.
+  
+```{r}
+str_subset(total_words,"^(.).*\\1$")
+```
+
+  2. Contain a repeated pair of letters (e.g. “church” contains “ch” repeated twice.)
+
+```{r}
+str_subset(total_words,"(..).*\\1")
+```
+
+  3. Contain one letter repeated in at least three places (e.g. “eleven” contains three “e”s.)
+
+```{r}
+str_subset(total_words,"(.).\\1.\\1.*$")
+```
+
+#### Tools
+
+**For each of the following challenges, try solving it by using both a single regular expression, and a combination of multiple str_detect() calls.**
+
+  1. Find all words that start or end with x
+  
+```{r}
+str_subset(total_words,"^x|x$") #single regular expression
+(start_x <- total_words[str_detect(total_words,"^x")])
+(end_x <- total_words[str_detect(total_words,"x$")])
+```
+
+  2. Find all words that start with a vowel and end with a consonant.
+  
+```{r}
+str_subset(total_words,"^[aeiou].*[^aeiou]$")
+total_words[str_detect(total_words,"^[aeiou].*[^aeiou]$")]
+```
+
+**In the previous example, you might have noticed that the regular expression matched “flickered”, which is not a colour. Modify the regex to fix the problem.**
+
+```{r}
+# creating colours group vector to match
+colours <- c(" red", " orange", " yellow", " green", " blue", " purple")
+colour_match <- str_c(colours, collapse = "|")
+more <- sentences[str_count(sentences, colour_match) > 1]
+str_view_all(more, colour_match)
+```
+
+**From the Harvard sentences data, extract the first word from each sentence.**
+  
+```{r}
+head(str_extract(sentences,"."))
+```
+
+
+
+### Task 2: Work with a list
+
+#### Simplifying data from a list of GitHub users
+
+repurrsive package has 6 default Github users data included. Let us first observe the structure of data
+
+```{r}
+#jsonedit(gh_users, mode="view") # remove # to view data interactively
+```
+
+str() command can be used to view structure of data.
+
+```{r}
+str(gh_users, max.level = 1) #max.level is used to specify maximal level of nesting to be displayed
+```
+
+So, the data contains information of 6 users with nested 30 lists each.
+
+Argument max.level is used to provide maximal level of nesting to be displayed. It is set to NA by default which means all levels of nesting to be displayed.
+
+Another argument of str() is list.len which specifies maximum number of list elements to display within a level
+
+```{r}
+str(gh_users,max_level=2,list.len = 2)
+```
+
+So, list.len truncates the list and nested list levels to be displayed.
+
+Now, let us see truncated nested list of a particular user.
+
+```{r}
+str(gh_users[[1]],list.len = 8)
+```
+
+#### Inspect elements of a single user:
+
+Inspecting elements 1, 2, 6, 18, 21, and 24 of the list component for the 5th GitHub user.
+
+```{r}
+sub_list <- c(gh_users[[5]][1],gh_users[[5]][2],gh_users[[5]][6],gh_users[[5]][18],gh_users[[5]][21],gh_users[[5]][24])
+sub_list
+```
+
+#### Extract an element
+
+To extract one element from each of the list we can use map() function
+> The map function transforms the input by applying a function to each element, the first argument is input and second is the function to be applied.
+
+```{r}
+map(gh_users,"id") # it can also be extracted using position of the element
+```
+
+As it can be seen above, map() returns a list. However, if we already know the expected type of output, map_type(example map_chr()) can be used to return atomic vector
+
+```{r}
+map_int(gh_users,2) #using position index for Id
+```
+
+#### Extract multiple values
+
+```{r}
+map(gh_users,magrittr::extract,c("name","id","login","location")) #`[` can also be used in place of magrittr::extract
+```
+
+However the data above is still in form of nested list.
+
+#### Extract data as a data frame
+
+```{r}
+map_df(gh_users,`[`,c("name","login","id","location")) %>%
+  kable()
+```
+
+gh_users have one level of nesting. But in real life it is quite common to have more.
+
+Let us explore a list of lists of lists, gh_repos:
+
+```{r}
+str(gh_repos,max.level = 2, list.len = 3)
+```
+
+It is data of 6 users and a list of their first 30 repos with further details.
+
+#### Extract value in lists with more than single nesting
+
+To extract the value in a list that has multiple levels we need to provide a vector input such that the j-th element of vector addresses the j-th level of the hierarchy
+
+```{r}
+gh_repos %>%
+  map(c(1,4,1)) # extracts from first repo of each user, the first element of 4th element which is a list
+```
+
